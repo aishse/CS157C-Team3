@@ -31,7 +31,7 @@ export function ComposePost() {
           id: profile.id,
           name: profile.name,
           username: profile.username,
-          avatar: user.profileImageUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${profile.username}`,
+          avatar: `/avatars/${profile.avatar}.svg`,
           bio: profile.bio,
         });
       } catch (error) {
@@ -41,7 +41,7 @@ export function ComposePost() {
           id: user.id,
           name: user.displayName || 'User',
           username: user.email?.split('@')[0] || 'user',
-          avatar: user.profileImageUrl || '',
+          avatar: '/avatars/avatar_1.svg',
         });
       }
     }

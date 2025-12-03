@@ -1,18 +1,13 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Home, Search, Bell, User, LogOut, Plus } from 'lucide-react';
+import { Home, Search, User, LogOut, Plus } from 'lucide-react';
 import { useAuth } from '@/providers/AuthContext';
 import { useApiClient } from '@/hooks/use-api';
+import { useAppStore } from '@/lib/store';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import type { ProfileResponse } from '@/lib/api';
-
-interface DockUser {
-  name: string;
-  username: string;
-  avatar: string;
-}
 
 /**
  * FloatingDock component for navigation on authenticated pages.
@@ -23,44 +18,47 @@ export function FloatingDock() {
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
   const api = useApiClient();
-  const [dockUser, setDockUser] = useState<DockUser | null>(null);
+  const { currentProfile, setCurrentProfile } = useAppStore();
 
   useEffect(() => {
     async function fetchProfile() {
-      if (!user) return;
+      if (!user || currentProfile) return;
 
       try {
         const profile = await api.get<ProfileResponse>(`/api/profile/${user.id}`);
-        setDockUser({
+        setCurrentProfile({
+          id: profile.id,
           name: profile.name,
           username: profile.username,
-          avatar: user.profileImageUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${profile.username}`,
+          avatar: profile.avatar,
+          bio: profile.bio || '',
         });
       } catch (error) {
         console.error('Error fetching profile:', error);
-        setDockUser({
+        setCurrentProfile({
+          id: user.id,
           name: user.displayName || 'User',
           username: user.email?.split('@')[0] || 'user',
-          avatar: user.profileImageUrl || '',
+          avatar: 'avatar_1',
+          bio: '',
         });
       }
     }
 
     fetchProfile();
-  }, [user, api]);
+  }, [user, api, currentProfile, setCurrentProfile]);
 
   const handleSignOut = async () => {
     await signOut();
     navigate('/');
   };
 
-  if (!user || !dockUser) return null;
+  if (!user || !currentProfile) return null;
 
   const links = [
     { href: '/home', label: 'Home', icon: Home },
     { href: '/explore', label: 'Explore', icon: Search },
-    { href: '/notifications', label: 'Notifications', icon: Bell },
-    { href: `/profile/${dockUser.username}`, label: 'Profile', icon: User },
+    { href: `/profile/${currentProfile.username}`, label: 'Profile', icon: User },
   ];
 
   return (
@@ -99,8 +97,8 @@ export function FloatingDock() {
 
         <div className="relative group">
           <Avatar className="w-10 h-10 border-2 border-white/10 cursor-pointer hover:border-white/30 transition-colors">
-            <AvatarImage src={dockUser.avatar} />
-            <AvatarFallback>{dockUser.name?.[0] || '?'}</AvatarFallback>
+            <AvatarImage src={`/avatars/${currentProfile.avatar}.svg`} />
+            <AvatarFallback>{currentProfile.name?.[0] || '?'}</AvatarFallback>
           </Avatar>
 
           <Button

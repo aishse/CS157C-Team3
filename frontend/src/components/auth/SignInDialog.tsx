@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useSignIn } from '@clerk/clerk-react';
 import { useAuth } from '@/providers/AuthContext';
 import {
   Dialog,
@@ -7,6 +8,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+
+// Type for tracking the current view in the sign-in dialog
+type SignInView = 'signin' | 'forgot-email' | 'forgot-code';
 
 interface SignInDialogProps {
   open: boolean;
@@ -24,11 +28,100 @@ export function SignInDialog({
   onSwitchToSignUp,
 }: SignInDialogProps) {
   const navigate = useNavigate();
+  const { signIn, setActive } = useSignIn();
   const { signInWithOAuth, signInWithCredential } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // Forgot password state - Requirements: 1.2, 4.3
+  const [view, setView] = useState<SignInView>('signin');
+  const [resetEmail, setResetEmail] = useState('');
+  const [resetCode, setResetCode] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [resetLoading, setResetLoading] = useState(false);
+
+  // Handle dialog open/close with state cleanup - Requirement 4.3
+  const handleOpenChange = (open: boolean) => {
+    if (!open) {
+      // Clear all reset-related state when dialog closes
+      setView('signin');
+      setResetEmail('');
+      setResetCode('');
+      setNewPassword('');
+      setError('');
+      // Also clear sign-in form state
+      setEmail('');
+      setPassword('');
+    }
+    onOpenChange(open);
+  };
+
+  // Handle requesting password reset code - Requirements: 2.1, 2.2, 2.3, 2.4
+  const handleRequestResetCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setResetLoading(true);
+
+    try {
+      await signIn?.create({
+        strategy: 'reset_password_email_code',
+        identifier: resetEmail,
+      });
+      // Success - transition to code verification view
+      setView('forgot-code');
+    } catch (err) {
+      // Handle errors by displaying error message - Requirement 2.3
+      const clerkError = err as { errors?: Array<{ message: string; longMessage?: string }> };
+      const message = clerkError.errors?.[0]?.longMessage || 
+                      clerkError.errors?.[0]?.message || 
+                      'An unexpected error occurred';
+      setError(message);
+    } finally {
+      setResetLoading(false);
+    }
+  };
+
+  // Handle back to sign in - Requirement 4.3
+  const handleBackToSignIn = () => {
+    setView('signin');
+    setResetEmail('');
+    setResetCode('');
+    setNewPassword('');
+    setError('');
+  };
+
+  // Handle verifying code and resetting password - Requirements: 3.2, 3.3, 3.4, 3.5
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setResetLoading(true);
+
+    try {
+      const result = await signIn?.attemptFirstFactor({
+        strategy: 'reset_password_email_code',
+        code: resetCode,
+        password: newPassword,
+      });
+
+      if (result?.status === 'complete' && result.createdSessionId) {
+        // Success - activate session and close dialog - Requirement 3.3
+        await setActive?.({ session: result.createdSessionId });
+        onOpenChange(false);
+        navigate('/home', { replace: true });
+      }
+    } catch (err) {
+      // Handle errors by displaying error message - Requirement 3.4
+      const clerkError = err as { errors?: Array<{ message: string; longMessage?: string }> };
+      const message = clerkError.errors?.[0]?.longMessage || 
+                      clerkError.errors?.[0]?.message || 
+                      'An unexpected error occurred';
+      setError(message);
+    } finally {
+      setResetLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -60,17 +153,118 @@ export function SignInDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent
         className="bg-white/5 backdrop-blur-2xl border border-white/10 sm:max-w-[400px] shadow-2xl"
         showCloseButton={true}
       >
         <DialogHeader>
           <DialogTitle className="text-3xl font-medium italic instrument text-white text-center">
-            Sign in
+            {view === 'signin' ? 'Sign in' : 'Reset password'}
           </DialogTitle>
         </DialogHeader>
 
+        {/* Forgot Password - Email Input View - Requirements: 1.3, 2.1, 4.1 */}
+        {view === 'forgot-email' && (
+          <div className="flex flex-col gap-4 mt-4">
+            <p className="text-white/70 text-sm text-center">
+              Enter your email address and we'll send you a code to reset your password.
+            </p>
+
+            {error && (
+              <div className="text-red-400 text-sm text-center bg-red-400/10 rounded-lg py-2 px-3">
+                {error}
+              </div>
+            )}
+
+            <form onSubmit={handleRequestResetCode} className="flex flex-col gap-4">
+              <input
+                type="email"
+                placeholder="Email"
+                value={resetEmail}
+                onChange={(e) => setResetEmail(e.target.value)}
+                required
+                className="w-full px-4 py-3 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 text-white placeholder-white/50 text-sm focus:outline-none focus:border-purple-400/60 transition-colors"
+              />
+
+              <button
+                type="submit"
+                disabled={resetLoading}
+                className="w-full px-6 py-3 rounded-full bg-white text-black font-semibold text-sm transition-all duration-300 hover:bg-white/90 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+              >
+                {resetLoading ? 'Sending...' : 'Send reset code'}
+              </button>
+            </form>
+
+            {/* Back to sign in link - Requirement 4.1 */}
+            <p className="text-white/60 text-sm text-center">
+              <button
+                type="button"
+                onClick={handleBackToSignIn}
+                className="text-purple-400 hover:text-purple-300 hover:underline bg-transparent border-none cursor-pointer"
+              >
+                Back to sign in
+              </button>
+            </p>
+          </div>
+        )}
+
+        {/* Forgot Password - Code Verification View - Requirements: 3.1, 4.2 */}
+        {view === 'forgot-code' && (
+          <div className="flex flex-col gap-4 mt-4">
+            <p className="text-white/70 text-sm text-center">
+              Enter the code sent to your email and choose a new password.
+            </p>
+
+            {error && (
+              <div className="text-red-400 text-sm text-center bg-red-400/10 rounded-lg py-2 px-3">
+                {error}
+              </div>
+            )}
+
+            <form onSubmit={handleResetPassword} className="flex flex-col gap-4">
+              <input
+                type="text"
+                placeholder="Reset code"
+                value={resetCode}
+                onChange={(e) => setResetCode(e.target.value)}
+                required
+                className="w-full px-4 py-3 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 text-white placeholder-white/50 text-sm focus:outline-none focus:border-purple-400/60 transition-colors"
+              />
+
+              <input
+                type="password"
+                placeholder="New password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                required
+                className="w-full px-4 py-3 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 text-white placeholder-white/50 text-sm focus:outline-none focus:border-purple-400/60 transition-colors"
+              />
+
+              <button
+                type="submit"
+                disabled={resetLoading}
+                className="w-full px-6 py-3 rounded-full bg-white text-black font-semibold text-sm transition-all duration-300 hover:bg-white/90 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+              >
+                {resetLoading ? 'Resetting...' : 'Reset password'}
+              </button>
+            </form>
+
+            {/* Back to sign in link - Requirement 4.2 */}
+            <p className="text-white/60 text-sm text-center">
+              <button
+                type="button"
+                onClick={handleBackToSignIn}
+                className="text-purple-400 hover:text-purple-300 hover:underline bg-transparent border-none cursor-pointer"
+              >
+                Back to sign in
+              </button>
+            </p>
+          </div>
+        )}
+
+        {/* Sign In View */}
+        {view === 'signin' && (
         <div className="flex flex-col gap-4 mt-4">
           {/* OAuth Buttons */}
           <div className="flex flex-col gap-3">
@@ -145,6 +339,17 @@ export function SignInDialog({
               className="w-full px-4 py-3 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 text-white placeholder-white/50 text-sm focus:outline-none focus:border-purple-400/60 transition-colors"
             />
 
+            {/* Forgot password link - Requirements: 1.1, 1.2 */}
+            <div className="text-right -mt-2">
+              <button
+                type="button"
+                onClick={() => setView('forgot-email')}
+                className="text-purple-400 hover:text-purple-300 hover:underline bg-transparent border-none cursor-pointer text-sm"
+              >
+                Forgot password?
+              </button>
+            </div>
+
             <button
               type="submit"
               disabled={loading}
@@ -166,6 +371,7 @@ export function SignInDialog({
             </button>
           </p>
         </div>
+        )}
       </DialogContent>
     </Dialog>
   );

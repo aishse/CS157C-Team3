@@ -25,15 +25,28 @@ export interface Post {
   likedByMe: boolean;
 }
 
+/**
+ * Current user profile for sharing across components.
+ */
+export interface UserProfile {
+  id: string;
+  name: string;
+  username: string;
+  avatar: string;
+  bio: string;
+}
+
 interface AppState {
   posts: Post[];
   isLoadingFeed: boolean;
   feedError: string | null;
+  currentProfile: UserProfile | null;
   addPost: (content: string, author: User) => void;
   toggleLike: (postId: string) => void;
   setFeedPosts: (posts: Post[]) => void;
   setFeedLoading: (isLoading: boolean) => void;
   setFeedError: (error: string | null) => void;
+  setCurrentProfile: (profile: UserProfile | null) => void;
 }
 
 /**
@@ -44,6 +57,7 @@ export const useAppStore = create<AppState>((set) => ({
   posts: [],
   isLoadingFeed: false,
   feedError: null,
+  currentProfile: null,
 
   /**
    * Adds a new post to the feed.
@@ -99,4 +113,10 @@ export const useAppStore = create<AppState>((set) => ({
    * Requirements: 2.4
    */
   setFeedError: (error: string | null) => set({ feedError: error }),
+
+  /**
+   * Sets the current user profile.
+   * Used to sync profile data across components (ProfilePage, FloatingDock).
+   */
+  setCurrentProfile: (profile: UserProfile | null) => set({ currentProfile: profile }),
 }));

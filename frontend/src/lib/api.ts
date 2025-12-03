@@ -276,6 +276,32 @@ export interface ProfileResponse {
   username: string;
   email: string;
   bio: string;
+  avatar: string;
+}
+
+/**
+ * Request type for updating user profile.
+ * Requirements: 2.1, 3.1, 4.1, 5.3
+ */
+export interface ProfileUpdateRequest {
+  name: string;
+  username: string;
+  bio: string;
+  avatar: string;
+}
+
+/**
+ * Response type for profile update endpoint.
+ * Returns the updated profile data.
+ * Requirements: 2.1, 3.1, 4.1, 5.3
+ */
+export interface ProfileUpdateResponse {
+  id: string;
+  name: string;
+  username: string;
+  email: string;
+  bio: string;
+  avatar: string;
 }
 
 export interface HealthResponse {
@@ -320,4 +346,23 @@ export interface FeedResponse {
  */
 export async function fetchFeed(): Promise<FeedResponse> {
   return apiClient.get<FeedResponse>('/api/feed');
+}
+
+/**
+ * Updates the user's profile information.
+ * Requirements: 6.1
+ * 
+ * @param userId - The ID of the user to update
+ * @param data - The profile update data
+ * @returns Promise resolving to the updated profile response
+ * @throws ApiError with status 400 for validation errors
+ * @throws ApiError with status 401 if not authenticated
+ * @throws ApiError with status 403 if trying to edit another user's profile
+ * @throws ApiError with status 409 if username is already taken
+ */
+export async function updateProfile(
+  userId: string,
+  data: ProfileUpdateRequest
+): Promise<ProfileUpdateResponse> {
+  return apiClient.patch<ProfileUpdateResponse>(`/api/profile/${userId}`, data);
 }

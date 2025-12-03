@@ -88,7 +88,8 @@ async def create_onboarding(
         name=request.name,
         username=request.username,
         email=current_user.email or "",
-        bio=request.bio
+        bio=request.bio,
+        avatar=request.avatar
     )
     
     try:

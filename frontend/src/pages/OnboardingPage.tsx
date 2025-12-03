@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { AvatarSelector } from '@/components/ui/AvatarSelector';
 import { validateUsername } from '@/lib/validation';
 import { ShaderBackground } from '@/components/ShaderBackground';
 
@@ -13,12 +14,14 @@ interface FormData {
   name: string;
   username: string;
   bio: string;
+  avatar: string | null;
 }
 
 interface FormErrors {
   name?: string;
   username?: string;
   bio?: string;
+  avatar?: string;
   general?: string;
 }
 
@@ -35,6 +38,7 @@ export function OnboardingPage() {
     name: '',
     username: '',
     bio: '',
+    avatar: null,
   });
   const [errors, setErrors] = useState<FormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -74,6 +78,11 @@ export function OnboardingPage() {
       newErrors.bio = 'Bio must be at most 160 characters';
     }
 
+    // Validate avatar selection (required)
+    if (!formData.avatar) {
+      newErrors.avatar = 'Please select an avatar';
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -93,6 +102,7 @@ export function OnboardingPage() {
         name: formData.name.trim(),
         username: formData.username.trim(),
         bio: formData.bio.trim(),
+        avatar: formData.avatar,
       });
 
       // Redirect to home after successful onboarding
@@ -214,6 +224,25 @@ export function OnboardingPage() {
                 </p>
                 {errors.bio && (
                   <p className="text-red-400 text-xs">{errors.bio}</p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-white/80">
+                  Choose your avatar
+                </Label>
+                <AvatarSelector
+                  selectedAvatar={formData.avatar}
+                  onSelect={(avatarId) => {
+                    setFormData(prev => ({ ...prev, avatar: avatarId }));
+                    if (errors.avatar) {
+                      setErrors(prev => ({ ...prev, avatar: undefined }));
+                    }
+                  }}
+                  className="bg-white/5 p-4 rounded-lg border border-white/10"
+                />
+                {errors.avatar && (
+                  <p className="text-red-400 text-xs">{errors.avatar}</p>
                 )}
               </div>
 

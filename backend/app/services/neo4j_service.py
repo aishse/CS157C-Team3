@@ -13,13 +13,14 @@ from pydantic import BaseModel
 
 class UserProfile(BaseModel):
     """User profile data model for Neo4j operations.
-    Schema: bio, email, id, name, username
+    Schema: bio, email, id, name, username, avatar
     """
     id: str
     name: str
     username: str
     email: str
-    bio: str
+    bio: str = ""
+    avatar: str = "avatar_1"
 
 
 class FeedPostAuthor(BaseModel):
@@ -75,7 +76,8 @@ class Neo4jService:
             name: $name,
             username: $username,
             email: $email,
-            bio: $bio
+            bio: $bio,
+            avatar: $avatar
         })
         """
         await self._session.run(
@@ -84,7 +86,8 @@ class Neo4jService:
             name=profile.name,
             username=profile.username,
             email=profile.email,
-            bio=profile.bio
+            bio=profile.bio,
+            avatar=profile.avatar
         )
     
     async def get_user_by_id(
@@ -116,7 +119,8 @@ class Neo4jService:
             name=node["name"],
             username=node["username"],
             email=node["email"],
-            bio=node["bio"]
+            bio=node.get("bio", ""),
+            avatar=node.get("avatar", "avatar_1")
         )
     
     async def is_username_available(self, username: str) -> bool:
@@ -140,6 +144,102 @@ class Neo4jService:
         record = await result.single()
         
         return record["count"] == 0
+
+    async def is_username_available_for_user(
+        self,
+        username: str,
+        current_user_id: str
+    ) -> bool:
+        """
+        Check if a username is available, excluding the current user.
+        
+        Allows a user to keep their own username during profile updates.
+        Performs a case-insensitive check to ensure username uniqueness.
+        
+        Args:
+            username: The username to check for availability.
+            current_user_id: The ID of the user making the update.
+            
+        Returns:
+            True if the username is available (or belongs to current user),
+            False if already taken by another user.
+            
+        Requirements: 3.3, 3.4
+        """
+        query = """
+        MATCH (u:User)
+        WHERE toLower(u.username) = toLower($username)
+          AND u.id <> $current_user_id
+        RETURN count(u) as count
+        """
+        result = await self._session.run(
+            query,
+            username=username,
+            current_user_id=current_user_id
+        )
+        record = await result.single()
+        
+        return record["count"] == 0
+
+    async def update_user(
+        self,
+        user_id: str,
+        name: str,
+        username: str,
+        bio: str,
+        avatar: str
+    ) -> UserProfile:
+        """
+        Update user profile in Neo4j.
+        
+        Updates the user's name, username, bio, and avatar fields.
+        The username uniqueness should be verified before calling this method.
+        
+        Args:
+            user_id: The user identifier.
+            name: The new display name.
+            username: The new username.
+            bio: The new bio.
+            avatar: The new avatar identifier.
+            
+        Returns:
+            Updated UserProfile.
+            
+        Raises:
+            ValueError: If user not found.
+            
+        Requirements: 2.3, 3.5, 4.3, 5.3
+        """
+        query = """
+        MATCH (u:User {id: $user_id})
+        SET u.name = $name,
+            u.username = $username,
+            u.bio = $bio,
+            u.avatar = $avatar
+        RETURN u
+        """
+        result = await self._session.run(
+            query,
+            user_id=user_id,
+            name=name,
+            username=username,
+            bio=bio,
+            avatar=avatar
+        )
+        record = await result.single()
+        
+        if record is None:
+            raise ValueError("User not found")
+        
+        node = record["u"]
+        return UserProfile(
+            id=node["id"],
+            name=node["name"],
+            username=node["username"],
+            email=node["email"],
+            bio=node["bio"],
+            avatar=node["avatar"]
+        )
 
     async def get_feed_posts(self, user_id: str) -> list[FeedPost]:
         """

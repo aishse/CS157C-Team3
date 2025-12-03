@@ -1,13 +1,16 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, CalendarDays } from 'lucide-react';
 import { useAuth } from '@/providers/AuthContext';
 import { useApiClient } from '@/hooks/use-api';
+import { useToast } from '@/hooks/use-toast';
 import { useAppStore } from '@/lib/store';
 import { Post } from '@/components/feed';
+import { EditProfileDialog } from '@/components/profile/EditProfileDialog';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import type { ProfileResponse } from '@/lib/api';
+import { updateProfile } from '@/lib/api';
+import type { ProfileResponse, ProfileUpdateRequest } from '@/lib/api';
 
 interface ProfileUser {
   id: string;
@@ -27,51 +30,92 @@ export function ProfilePage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const api = useApiClient();
-  const { posts } = useAppStore();
+  const { toast } = useToast();
+  const { posts, setCurrentProfile } = useAppStore();
   const [profileUser, setProfileUser] = useState<ProfileUser | null>(null);
   const [loading, setLoading] = useState(true);
+  
+  // Dialog state for EditProfileDialog
+  // Requirements: 1.1
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
   // Fetch user profile from backend
-  useEffect(() => {
-    async function fetchProfile() {
-      if (!user) {
-        setLoading(false);
-        return;
-      }
-
-      try {
-        const profile = await api.get<ProfileResponse>(`/api/profile/${user.id}`);
-        setProfileUser({
-          id: profile.id,
-          name: profile.name,
-          username: profile.username,
-          avatar: user.profileImageUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${profile.username}`,
-          bio: profile.bio,
-          joinedDate: 'recently',
-        });
-      } catch (error) {
-        console.error('Error fetching profile:', error);
-        // Fallback to auth user data if profile not found
-        if (user) {
-          setProfileUser({
-            id: user.id,
-            name: user.displayName || 'User',
-            username: username || 'user',
-            avatar: user.profileImageUrl || '',
-            bio: '',
-            joinedDate: 'recently',
-          });
-        }
-      } finally {
-        setLoading(false);
-      }
+  // Requirements: 6.2 - Refetch profile data after successful update
+  const fetchProfile = useCallback(async () => {
+    if (!user) {
+      setLoading(false);
+      return;
     }
 
-    fetchProfile();
+    try {
+      const profile = await api.get<ProfileResponse>(`/api/profile/${user.id}`);
+      setProfileUser({
+        id: profile.id,
+        name: profile.name,
+        username: profile.username,
+        avatar: `/avatars/${profile.avatar}.svg`,
+        bio: profile.bio,
+        joinedDate: 'recently',
+      });
+    } catch (error) {
+      console.error('Error fetching profile:', error);
+      // Fallback to auth user data if profile not found
+      if (user) {
+        setProfileUser({
+          id: user.id,
+          name: user.displayName || 'User',
+          username: username || 'user',
+          avatar: '/avatars/avatar_1.svg',
+          bio: '',
+          joinedDate: 'recently',
+        });
+      }
+    } finally {
+      setLoading(false);
+    }
   }, [user, username, api]);
+
+  useEffect(() => {
+    fetchProfile();
+  }, [fetchProfile]);
 
   const isCurrentUser = profileUser?.username === username;
   const userPosts = posts.filter((post) => post.author.username === username);
+
+  // Handle profile save
+  // Requirements: 6.2 - Refetch profile data after successful update
+  const handleProfileSave = async (updatedProfile: ProfileUpdateRequest) => {
+    if (!user) return;
+    
+    const response = await updateProfile(user.id, updatedProfile);
+    
+    // Update local state
+    setProfileUser({
+      id: response.id,
+      name: response.name,
+      username: response.username,
+      avatar: `/avatars/${response.avatar}.svg`,
+      bio: response.bio,
+      joinedDate: 'recently',
+    });
+    
+    // Update shared store so FloatingDock reflects the change
+    setCurrentProfile({
+      id: response.id,
+      name: response.name,
+      username: response.username,
+      avatar: response.avatar,
+      bio: response.bio || '',
+    });
+    
+    // Close dialog and show success notification
+    // Requirements: 6.5
+    setIsEditDialogOpen(false);
+    toast({
+      title: 'Profile updated',
+      description: 'Your profile has been updated successfully.',
+    });
+  };
 
   if (loading) {
     return (
@@ -115,6 +159,7 @@ export function ProfilePage() {
           <Button
             variant="outline"
             className="rounded-full font-bold border-white/30 hover:bg-white/10"
+            onClick={() => setIsEditDialogOpen(true)}
           >
             Edit profile
           </Button>
@@ -174,6 +219,22 @@ export function ProfilePage() {
           <Post key={post.id} post={post} />
         ))}
       </div>
+
+      {/* Edit Profile Dialog */}
+      {/* Requirements: 1.1 - Pass current profile data to dialog */}
+      {profileUser && (
+        <EditProfileDialog
+          open={isEditDialogOpen}
+          onOpenChange={setIsEditDialogOpen}
+          currentProfile={{
+            name: profileUser.name,
+            username: profileUser.username,
+            bio: profileUser.bio || '',
+            avatar: profileUser.avatar.replace('/avatars/', '').replace('.svg', ''),
+          }}
+          onSave={handleProfileSave}
+        />
+      )}
     </>
   );
 }
