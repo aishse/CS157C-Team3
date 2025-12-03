@@ -4,6 +4,9 @@ import { AuthProvider } from '@/providers/AuthContext';
 import { ApiClientProvider } from '@/providers/ApiClientProvider';
 import { LandingPage, OnboardingPage, HomePage, ProfilePage, SSOCallbackPage } from '@/pages';
 import { MainLayout } from '@/components/layout';
+import { ExplorePage } from '@/pages/ExplorePage';
+import { ConnectionsPage } from '@/pages/ConnectionsPage';
+import { MutualConnectionsPage } from '@/pages/MutualConnectionsPage';
 
 /**
  * Root layout that provides the AuthProvider and ApiClientProvider context to all routes.
@@ -59,6 +62,19 @@ const router = createBrowserRouter([
             path: '/profile/:username',
             element: <ProfilePage />,
           },
+          // ⭐ NEW UC 5–8 PAGES
+    {
+      path: '/explore',
+      element: <ExplorePage />,   // UC-5 & UC-6
+    },
+    {
+      path: '/connections',
+      element: <ConnectionsPage />,  // UC-7
+    },
+    {
+      path: '/mutual/:username',
+      element: <MutualConnectionsPage />,  // UC-8
+    },
         ],
       },
     ],

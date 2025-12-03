@@ -9,6 +9,8 @@ from neo4j import AsyncGraphDatabase
 
 from app.config import get_settings
 from app.database import set_neo4j_driver, close_neo4j_driver
+from app.routers import social_graph
+
 
 
 @asynccontextmanager
@@ -75,3 +77,6 @@ def create_app() -> FastAPI:
 
 # Create the app instance
 app = create_app()
+
+
+app.include_router(social_graph.router)

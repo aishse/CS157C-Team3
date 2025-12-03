@@ -115,7 +115,7 @@ class Neo4jService:
         
         node = record["u"]
         return UserProfile(
-            id=node["id"],
+            id=str(node["id"]),
             name=node["name"],
             username=node["username"],
             email=node["email"],
@@ -233,7 +233,7 @@ class Neo4jService:
         
         node = record["u"]
         return UserProfile(
-            id=node["id"],
+            id=str(node["id"]),
             name=node["name"],
             username=node["username"],
             email=node["email"],
@@ -278,3 +278,129 @@ class Neo4jService:
             ))
         
         return feed_posts
+
+
+    async def follow_user(self, user_id: str, target_id: str) -> None:
+        """
+        Create a FOLLOWS relationship from user_id -> target_id.
+        Requirements: UC-5 Follow Another User
+        """
+        query = """
+        MATCH (u:User {id: $user_id}), (t:User {id: $target_id})
+        MERGE (u)-[:FOLLOWS]->(t)
+        """
+        await self._session.run(query, user_id=user_id, target_id=target_id)
+
+    async def unfollow_user(self, user_id: str, target_id: str) -> None:
+        """
+        Remove a FOLLOWS relationship.
+        Requirements: UC-6 Unfollow a User
+        """
+        query = """
+        MATCH (u:User {id: $user_id})-[f:FOLLOWS]->(t:User {id: $target_id})
+        DELETE f
+        """
+        await self._session.run(query, user_id=user_id, target_id=target_id)
+
+    async def get_following(self, user_id: str) -> list[UserProfile]:
+        """
+        Get list of users that current user is following.
+        Requirements: UC-7 View Connections
+        """
+        query = """
+        MATCH (u:User {id: $user_id})-[:FOLLOWS]->(f:User)
+        RETURN f
+        """
+        result = await self._session.run(query, user_id=user_id)
+        records = await result.data()
+
+        following = []
+        for record in records:
+            node = record["f"]
+            following.append(UserProfile(
+                id=str(node["id"]),
+                name=node["name"],
+                username=node["username"],
+                email=node["email"],
+                bio=node.get("bio", ""),
+                avatar=node.get("avatar", "avatar_1")
+            ))
+        return following
+
+    async def get_followers(self, user_id: str) -> list[UserProfile]:
+        """
+        Get list of users who follow the current user.
+        Requirements: UC-7 View Connections
+        """
+        query = """
+        MATCH (f:User)-[:FOLLOWS]->(u:User {id: $user_id})
+        RETURN f
+        """
+        result = await self._session.run(query, user_id=user_id)
+        records = await result.data()
+
+        followers = []
+        for record in records:
+            node = record["f"]
+            followers.append(UserProfile(
+                id=str(node["id"]),
+                name=node["name"],
+                username=node["username"],
+                email=node["email"],
+                bio=node.get("bio", ""),
+                avatar=node.get("avatar", "avatar_1")
+            ))
+        return followers
+
+    async def get_mutual_connections(self, user1: str, user2: str) -> list[UserProfile]:
+        """
+        Get mutual connections between two users.
+        Requirements: UC-8 Mutual Connections
+        """
+        query = """
+        MATCH (u1:User {id: $user1})-[:FOLLOWS]->(m:User),
+              (u2:User {id: $user2})-[:FOLLOWS]->(m)
+        RETURN m
+        """
+        result = await self._session.run(user1=user1, user2=user2)
+        records = await result.data()
+
+        mutual = []
+        for record in records:
+            node = record["m"]
+            mutual.append(UserProfile(
+                id=str(node["id"]),
+                name=node["name"],
+                username=node["username"],
+                email=node["email"],
+                bio=node.get("bio", ""),
+                avatar=node.get("avatar", "avatar_1")
+            ))
+        return mutual
+
+    async def get_all_users_except(self, user_id: str) -> list[UserProfile]:
+        """
+        Get all users except the current user.
+        Used for Explore page.
+        """
+        query = """
+        MATCH (u:User)
+        WHERE u.id <> $user_id
+        RETURN u
+        ORDER BY u.username
+        """
+        result = await self._session.run(query, user_id=user_id)
+        records = await result.data()
+
+        users = []
+        for record in records:
+            node = record["u"]
+            users.append(UserProfile(
+                id=str(node["id"]),
+                name=node["name"],
+                username=node["username"],
+                email=node["email"],
+                bio=node.get("bio", ""),
+                avatar=node.get("avatar", "avatar_1")
+            ))
+        return users

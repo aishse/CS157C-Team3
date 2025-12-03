@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Home, Search, User, LogOut, Plus } from 'lucide-react';
+import { Home, Search, User, LogOut, Plus, Users } from 'lucide-react';
 import { useAuth } from '@/providers/AuthContext';
 import { useApiClient } from '@/hooks/use-api';
 import { useAppStore } from '@/lib/store';
@@ -56,10 +56,12 @@ export function FloatingDock() {
   if (!user || !currentProfile) return null;
 
   const links = [
-    { href: '/home', label: 'Home', icon: Home },
-    { href: '/explore', label: 'Explore', icon: Search },
-    { href: `/profile/${currentProfile.username}`, label: 'Profile', icon: User },
-  ];
+  { href: '/home', label: 'Home', icon: Home },
+  { href: '/explore', label: 'Explore', icon: Search },
+  { href: '/connections', label: 'Connections', icon: Users },   // ⭐ ADD THIS
+  { href: `/profile/${currentProfile.username}`, label: 'Profile', icon: User },
+];
+
 
   return (
     <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50">

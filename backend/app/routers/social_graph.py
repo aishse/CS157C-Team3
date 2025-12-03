@@ -1,0 +1,64 @@
+from fastapi import APIRouter, Depends, HTTPException, status
+from typing import Annotated
+
+from app.dependencies import get_current_user, ClerkUser, get_neo4j_service
+from app.services.neo4j_service import Neo4jService, UserProfile
+
+router = APIRouter(prefix="/api/social", tags=["social"])
+
+# -------------------- UC-5 Follow User --------------------
+@router.post("/follow/{target_id}")
+async def follow_user(
+    target_id: str,
+    current_user: Annotated[ClerkUser, Depends(get_current_user)],
+    neo4j: Annotated[Neo4jService, Depends(get_neo4j_service)]
+):
+    if target_id == current_user.id:
+        raise HTTPException(status_code=400, detail="Cannot follow yourself")
+
+    await neo4j.follow_user(current_user.id, target_id)
+    return {"success": True, "message": "User followed successfully"}
+
+# -------------------- UC-6 Unfollow User --------------------
+@router.delete("/unfollow/{target_id}")
+async def unfollow_user(
+    target_id: str,
+    current_user: Annotated[ClerkUser, Depends(get_current_user)],
+    neo4j: Annotated[Neo4jService, Depends(get_neo4j_service)]
+):
+    await neo4j.unfollow_user(current_user.id, target_id)
+    return {"success": True, "message": "User unfollowed successfully"}
+
+# -------------------- UC-7 Following List --------------------
+@router.get("/following")
+async def get_following(
+    current_user: Annotated[ClerkUser, Depends(get_current_user)],
+    neo4j: Annotated[Neo4jService, Depends(get_neo4j_service)]
+) -> list[UserProfile]:
+    return await neo4j.get_following(current_user.id)
+
+# -------------------- UC-7 Followers List --------------------
+@router.get("/followers")
+async def get_followers(
+    current_user: Annotated[ClerkUser, Depends(get_current_user)],
+    neo4j: Annotated[Neo4jService, Depends(get_neo4j_service)]
+) -> list[UserProfile]:
+    return await neo4j.get_followers(current_user.id)
+
+# -------------------- UC-8 Mutual Connections --------------------
+@router.get("/mutual/{other_id}")
+async def mutual_connections(
+    other_id: str,
+    current_user: Annotated[ClerkUser, Depends(get_current_user)],
+    neo4j: Annotated[Neo4jService, Depends(get_neo4j_service)]
+):
+    return await neo4j.get_mutual_connections(current_user.id, other_id)
+
+
+@router.get("/users")
+async def list_users(
+    current_user: Annotated[ClerkUser, Depends(get_current_user)],
+    neo4j: Annotated[Neo4jService, Depends(get_neo4j_service)]
+):
+    return await neo4j.get_all_users_except(current_user.id)
+

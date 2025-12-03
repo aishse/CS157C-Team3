@@ -366,3 +366,56 @@ export async function updateProfile(
 ): Promise<ProfileUpdateResponse> {
   return apiClient.patch<ProfileUpdateResponse>(`/api/profile/${userId}`, data);
 }
+
+
+// =============================================
+// ⭐ SOCIAL GRAPH API (UC-5 → UC-8)
+// =============================================
+
+/**
+ * Fetch all users except the current user (Explore Page).
+ * Backend: GET /api/social/users
+ */
+export async function getAllUsers(): Promise<ProfileResponse[]> {
+  return apiClient.get<ProfileResponse[]>('/api/social/users');
+}
+
+/**
+ * Follow a user (UC-5)
+ * Backend: POST /api/social/follow/{target_id}
+ */
+export async function followUser(targetId: string): Promise<{ success: boolean; message: string }> {
+  return apiClient.post(`/api/social/follow/${targetId}`, {});
+}
+
+/**
+ * Unfollow a user (UC-6)
+ * Backend: DELETE /api/social/unfollow/{target_id}
+ */
+export async function unfollowUser(targetId: string): Promise<{ success: boolean; message: string }> {
+  return apiClient.delete(`/api/social/unfollow/${targetId}`);
+}
+
+/**
+ * Get list of users the current user is following (UC-7)
+ * Backend: GET /api/social/following
+ */
+export async function getFollowing(): Promise<ProfileResponse[]> {
+  return apiClient.get<ProfileResponse[]>('/api/social/following');
+}
+
+/**
+ * Get list of users who follow the current user (UC-7)
+ * Backend: GET /api/social/followers
+ */
+export async function getFollowers(): Promise<ProfileResponse[]> {
+  return apiClient.get<ProfileResponse[]>('/api/social/followers');
+}
+
+/**
+ * Get mutual connections between the current user and another user (UC-8)
+ * Backend: GET /api/social/mutual/{other_id}
+ */
+export async function getMutualConnections(otherId: string): Promise<ProfileResponse[]> {
+  return apiClient.get<ProfileResponse[]>(`/api/social/mutual/${otherId}`);
+}
