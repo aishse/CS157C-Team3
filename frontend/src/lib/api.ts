@@ -277,6 +277,8 @@ export interface ProfileResponse {
   email: string;
   bio: string;
   avatar: string;
+  followers_count: number;
+  following_count: number;
 }
 
 /**
@@ -405,11 +407,27 @@ export async function getFollowing(): Promise<ProfileResponse[]> {
 }
 
 /**
+ * Get list of users a specific user is following
+ * Backend: GET /api/social/following/{user_id}
+ */
+export async function getFollowingForUser(userId: string): Promise<ProfileResponse[]> {
+  return apiClient.get<ProfileResponse[]>(`/api/social/following/${userId}`);
+}
+
+/**
  * Get list of users who follow the current user (UC-7)
  * Backend: GET /api/social/followers
  */
 export async function getFollowers(): Promise<ProfileResponse[]> {
   return apiClient.get<ProfileResponse[]>('/api/social/followers');
+}
+
+/**
+ * Get list of users who follow a specific user
+ * Backend: GET /api/social/followers/{user_id}
+ */
+export async function getFollowersForUser(userId: string): Promise<ProfileResponse[]> {
+  return apiClient.get<ProfileResponse[]>(`/api/social/followers/${userId}`);
 }
 
 /**

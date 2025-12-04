@@ -90,7 +90,7 @@ class OnboardingRequest(BaseModel):
 class ProfileResponse(BaseModel):
     """
     Response model for user profile data.
-    Schema: bio, email, id, name, username, avatar
+    Schema: bio, email, id, name, username, avatar, followers_count, following_count
     """
     id: str = Field(
         ...,
@@ -115,6 +115,14 @@ class ProfileResponse(BaseModel):
     avatar: str = Field(
         ...,
         description="Avatar identifier (avatar_1 through avatar_10)"
+    )
+    followers_count: int = Field(
+        default=0,
+        description="Number of followers"
+    )
+    following_count: int = Field(
+        default=0,
+        description="Number of users being followed"
     )
 
 

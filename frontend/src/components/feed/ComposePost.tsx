@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Image, Smile, CalendarClock, MapPin } from 'lucide-react';
+import { Smile } from 'lucide-react';
 import { useAuth } from '@/providers/AuthContext';
 import { useApiClient } from '@/hooks/use-api';
 import { useAppStore } from '@/lib/store';
@@ -7,7 +7,19 @@ import type { User } from '@/lib/store';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Textarea } from '@/components/ui/textarea';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import type { ProfileResponse } from '@/lib/api';
+
+const EMOJI_LIST = [
+  '😀', '😃', '😄', '😁', '😆', '😅', '🤣', '😂',
+  '🙂', '😊', '😇', '🥰', '😍', '🤩', '😘', '😗',
+  '😋', '😛', '😜', '🤪', '😝', '🤑', '🤗', '🤭',
+  '🤔', '🤐', '🤨', '😐', '😑', '😶', '😏', '😒',
+  '🙄', '😬', '🤥', '😌', '😔', '😪', '🤤', '😴',
+  '😷', '🤒', '🤕', '🤢', '🤮', '🤧', '🥵', '🥶',
+  '👍', '👎', '👏', '🙌', '🤝', '❤️', '🔥', '✨',
+  '🎉', '🎊', '💯', '⭐', '🌟', '💪', '🤞', '✌️',
+];
 
 /**
  * ComposePost component for creating new posts.
@@ -74,18 +86,27 @@ export function ComposePost() {
 
         <div className="flex items-center justify-between border-t border-white/10 pt-4">
           <div className="flex items-center gap-1 text-sky-500">
-            <Button variant="ghost" size="icon" className="rounded-full hover:bg-sky-500/10 hover:text-sky-500">
-              <Image className="w-5 h-5" />
-            </Button>
-            <Button variant="ghost" size="icon" className="rounded-full hover:bg-sky-500/10 hover:text-sky-500">
-              <Smile className="w-5 h-5" />
-            </Button>
-            <Button variant="ghost" size="icon" className="rounded-full hover:bg-sky-500/10 hover:text-sky-500">
-              <CalendarClock className="w-5 h-5" />
-            </Button>
-            <Button variant="ghost" size="icon" className="rounded-full hover:bg-sky-500/10 hover:text-sky-500">
-              <MapPin className="w-5 h-5" />
-            </Button>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="ghost" size="icon" className="rounded-full hover:bg-sky-500/10 hover:text-sky-500">
+                  <Smile className="w-5 h-5" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-64 p-2" align="start">
+                <div className="grid grid-cols-8 gap-1">
+                  {EMOJI_LIST.map((emoji) => (
+                    <button
+                      key={emoji}
+                      type="button"
+                      className="p-1 text-xl hover:bg-white/10 rounded cursor-pointer"
+                      onClick={() => setContent((prev) => prev + emoji)}
+                    >
+                      {emoji}
+                    </button>
+                  ))}
+                </div>
+              </PopoverContent>
+            </Popover>
           </div>
 
           <Button

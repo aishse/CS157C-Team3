@@ -7,9 +7,10 @@ import { useToast } from '@/hooks/use-toast';
 import { useAppStore } from '@/lib/store';
 import { Post } from '@/components/feed';
 import { EditProfileDialog } from '@/components/profile/EditProfileDialog';
+import { FollowersDialog, type FollowersDialogType } from '@/components/profile/FollowersDialog';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { updateProfile } from '@/lib/api';
+import { updateProfile, followUser, unfollowUser, getFollowing } from '@/lib/api';
 import type { ProfileResponse, ProfileUpdateRequest } from '@/lib/api';
 
 interface ProfileUser {
@@ -19,6 +20,8 @@ interface ProfileUser {
   avatar: string;
   bio?: string;
   joinedDate?: string;
+  followersCount: number;
+  followingCount: number;
 }
 
 /**
@@ -38,17 +41,27 @@ export function ProfilePage() {
   // Dialog state for EditProfileDialog
   // Requirements: 1.1
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  
+  // Dialog state for FollowersDialog
+  const [followersDialogOpen, setFollowersDialogOpen] = useState(false);
+  const [followersDialogType, setFollowersDialogType] = useState<FollowersDialogType>('followers');
+  
+  // Follow state for other users' profiles
+  const [isFollowing, setIsFollowing] = useState(false);
 
-  // Fetch user profile from backend
-  // Requirements: 6.2 - Refetch profile data after successful update
+  // Fetch user profile from backend by username
   const fetchProfile = useCallback(async () => {
-    if (!user) {
+    if (!username) {
       setLoading(false);
       return;
     }
 
     try {
-      const profile = await api.get<ProfileResponse>(`/api/profile/${user.id}`);
+      const [profile, followingList] = await Promise.all([
+        api.get<ProfileResponse>(`/api/profile/by-username/${username}`),
+        user ? getFollowing() : Promise.resolve([]),
+      ]);
+      
       setProfileUser({
         id: profile.id,
         name: profile.name,
@@ -56,30 +69,25 @@ export function ProfilePage() {
         avatar: `/avatars/${profile.avatar}.svg`,
         bio: profile.bio,
         joinedDate: 'recently',
+        followersCount: profile.followers_count,
+        followingCount: profile.following_count,
       });
+      
+      // Check if current user is following this profile
+      setIsFollowing(followingList.some((u) => u.id === profile.id));
     } catch (error) {
       console.error('Error fetching profile:', error);
-      // Fallback to auth user data if profile not found
-      if (user) {
-        setProfileUser({
-          id: user.id,
-          name: user.displayName || 'User',
-          username: username || 'user',
-          avatar: '/avatars/avatar_1.svg',
-          bio: '',
-          joinedDate: 'recently',
-        });
-      }
+      setProfileUser(null);
     } finally {
       setLoading(false);
     }
-  }, [user, username, api]);
+  }, [username, api, user]);
 
   useEffect(() => {
     fetchProfile();
   }, [fetchProfile]);
 
-  const isCurrentUser = profileUser?.username === username;
+  const isCurrentUser = user?.id === profileUser?.id;
   const userPosts = posts.filter((post) => post.author.username === username);
 
   // Handle profile save
@@ -89,15 +97,17 @@ export function ProfilePage() {
     
     const response = await updateProfile(user.id, updatedProfile);
     
-    // Update local state
-    setProfileUser({
+    // Update local state, preserving follower/following counts
+    setProfileUser((prev) => ({
       id: response.id,
       name: response.name,
       username: response.username,
       avatar: `/avatars/${response.avatar}.svg`,
       bio: response.bio,
       joinedDate: 'recently',
-    });
+      followersCount: prev?.followersCount ?? 0,
+      followingCount: prev?.followingCount ?? 0,
+    }));
     
     // Update shared store so FloatingDock reflects the change
     setCurrentProfile({
@@ -163,8 +173,31 @@ export function ProfilePage() {
           >
             Edit profile
           </Button>
+        ) : isFollowing ? (
+          <Button
+            variant="outline"
+            className="rounded-full font-bold border-white/30 hover:bg-red-500/20 hover:text-red-400 hover:border-red-400"
+            onClick={async () => {
+              await unfollowUser(profileUser.id);
+              setIsFollowing(false);
+              setProfileUser((prev) =>
+                prev ? { ...prev, followersCount: prev.followersCount - 1 } : prev
+              );
+            }}
+          >
+            Unfollow
+          </Button>
         ) : (
-          <Button className="rounded-full font-bold bg-white text-black hover:bg-white/90">
+          <Button
+            className="rounded-full font-bold bg-white text-black hover:bg-white/90"
+            onClick={async () => {
+              await followUser(profileUser.id);
+              setIsFollowing(true);
+              setProfileUser((prev) =>
+                prev ? { ...prev, followersCount: prev.followersCount + 1 } : prev
+              );
+            }}
+          >
             Follow
           </Button>
         )}
@@ -184,12 +217,24 @@ export function ProfilePage() {
         </div>
 
         <div className="flex gap-4 text-sm">
-          <div className="hover:underline cursor-pointer">
-            <span className="font-bold text-white">142</span>{' '}
+          <div
+            className="hover:underline cursor-pointer"
+            onClick={() => {
+              setFollowersDialogType('following');
+              setFollowersDialogOpen(true);
+            }}
+          >
+            <span className="font-bold text-white">{profileUser.followingCount}</span>{' '}
             <span className="text-white/50">Following</span>
           </div>
-          <div className="hover:underline cursor-pointer">
-            <span className="font-bold text-white">3.5K</span>{' '}
+          <div
+            className="hover:underline cursor-pointer"
+            onClick={() => {
+              setFollowersDialogType('followers');
+              setFollowersDialogOpen(true);
+            }}
+          >
+            <span className="font-bold text-white">{profileUser.followersCount}</span>{' '}
             <span className="text-white/50">Followers</span>
           </div>
         </div>
@@ -199,18 +244,6 @@ export function ProfilePage() {
         <div className="flex-1 hover:bg-white/10 transition-colors cursor-pointer py-4 flex justify-center relative">
           <span className="font-bold">Posts</span>
           <div className="absolute bottom-0 w-14 h-1 bg-sky-500 rounded-full" />
-        </div>
-        <div className="flex-1 hover:bg-white/10 transition-colors cursor-pointer py-4 flex justify-center text-white/50">
-          <span>Replies</span>
-        </div>
-        <div className="flex-1 hover:bg-white/10 transition-colors cursor-pointer py-4 flex justify-center text-white/50">
-          <span>Highlights</span>
-        </div>
-        <div className="flex-1 hover:bg-white/10 transition-colors cursor-pointer py-4 flex justify-center text-white/50">
-          <span>Media</span>
-        </div>
-        <div className="flex-1 hover:bg-white/10 transition-colors cursor-pointer py-4 flex justify-center text-white/50">
-          <span>Likes</span>
         </div>
       </div>
 
@@ -233,6 +266,21 @@ export function ProfilePage() {
             avatar: profileUser.avatar.replace('/avatars/', '').replace('.svg', ''),
           }}
           onSave={handleProfileSave}
+        />
+      )}
+
+      {/* Followers/Following Dialog */}
+      {profileUser && (
+        <FollowersDialog
+          open={followersDialogOpen}
+          onOpenChange={setFollowersDialogOpen}
+          type={followersDialogType}
+          userId={profileUser.id}
+          onFollowChange={(delta) => {
+            setProfileUser((prev) =>
+              prev ? { ...prev, followingCount: prev.followingCount + delta } : prev
+            );
+          }}
         />
       )}
     </>

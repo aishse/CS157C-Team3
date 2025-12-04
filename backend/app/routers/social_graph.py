@@ -37,6 +37,15 @@ async def get_following(
 ) -> list[UserProfile]:
     return await neo4j.get_following(current_user.id)
 
+
+@router.get("/following/{user_id}")
+async def get_following_for_user(
+    user_id: str,
+    neo4j: Annotated[Neo4jService, Depends(get_neo4j_service)]
+) -> list[UserProfile]:
+    """Get the list of users that a specific user is following."""
+    return await neo4j.get_following(user_id)
+
 # -------------------- UC-7 Followers List --------------------
 @router.get("/followers")
 async def get_followers(
@@ -44,6 +53,15 @@ async def get_followers(
     neo4j: Annotated[Neo4jService, Depends(get_neo4j_service)]
 ) -> list[UserProfile]:
     return await neo4j.get_followers(current_user.id)
+
+
+@router.get("/followers/{user_id}")
+async def get_followers_for_user(
+    user_id: str,
+    neo4j: Annotated[Neo4jService, Depends(get_neo4j_service)]
+) -> list[UserProfile]:
+    """Get the list of users who follow a specific user."""
+    return await neo4j.get_followers(user_id)
 
 # -------------------- UC-8 Mutual Connections --------------------
 @router.get("/mutual/{other_id}")

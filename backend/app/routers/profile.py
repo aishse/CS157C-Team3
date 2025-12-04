@@ -21,6 +21,58 @@ router = APIRouter(prefix="/api", tags=["profile"])
 
 
 @router.get(
+    "/profile/by-username/{username}",
+    response_model=ProfileResponse,
+    responses={
+        404: {"model": ErrorResponse, "description": "Profile not found"},
+        500: {"model": ErrorResponse, "description": "Server error"},
+    },
+)
+async def get_profile_by_username(
+    username: str,
+    neo4j_service: Annotated[Neo4jService, Depends(get_neo4j_service)],
+) -> ProfileResponse:
+    """
+    Get a user profile by username.
+    
+    Queries Neo4j for the user profile and returns it if found.
+    Includes real follower and following counts from the graph.
+    """
+    try:
+        profile = await neo4j_service.get_user_by_username(username)
+    except Exception as e:
+        logger.exception(f"Failed to retrieve profile for username={username}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve profile"
+        )
+    
+    if profile is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Profile not found"
+        )
+    
+    # Get follower and following counts from the graph
+    try:
+        followers_count, following_count = await neo4j_service.get_follow_counts(profile.id)
+    except Exception as e:
+        logger.exception(f"Failed to retrieve follow counts for user_id={profile.id}: {e}")
+        followers_count, following_count = 0, 0
+    
+    return ProfileResponse(
+        id=profile.id,
+        name=profile.name,
+        username=profile.username,
+        email=profile.email,
+        bio=profile.bio,
+        avatar=profile.avatar,
+        followers_count=followers_count,
+        following_count=following_count
+    )
+
+
+@router.get(
     "/profile/{user_id}",
     response_model=ProfileResponse,
     responses={
@@ -36,6 +88,7 @@ async def get_profile(
     Get a user profile by user ID.
     
     Queries Neo4j for the user profile and returns it if found.
+    Includes real follower and following counts from the graph.
     """
     try:
         profile = await neo4j_service.get_user_by_id(user_id)
@@ -52,13 +105,22 @@ async def get_profile(
             detail="Profile not found"
         )
     
+    # Get follower and following counts from the graph
+    try:
+        followers_count, following_count = await neo4j_service.get_follow_counts(user_id)
+    except Exception as e:
+        logger.exception(f"Failed to retrieve follow counts for user_id={user_id}: {e}")
+        followers_count, following_count = 0, 0
+    
     return ProfileResponse(
         id=profile.id,
         name=profile.name,
         username=profile.username,
         email=profile.email,
         bio=profile.bio,
-        avatar=profile.avatar
+        avatar=profile.avatar,
+        followers_count=followers_count,
+        following_count=following_count
     )
 
 

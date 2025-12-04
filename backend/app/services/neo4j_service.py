@@ -122,6 +122,66 @@ class Neo4jService:
             bio=node.get("bio", ""),
             avatar=node.get("avatar", "avatar_1")
         )
+
+    async def get_user_by_username(self, username: str) -> Optional[UserProfile]:
+        """
+        Retrieve a user profile from Neo4j by their username.
+        
+        Args:
+            username: The username to look up.
+            
+        Returns:
+            UserProfile if found, None otherwise.
+        """
+        query = """
+        MATCH (u:User {username: $username})
+        RETURN u
+        """
+        result = await self._session.run(query, username=username)
+        record = await result.single()
+        
+        if record is None:
+            return None
+        
+        node = record["u"]
+        return UserProfile(
+            id=str(node["id"]),
+            name=node["name"],
+            username=node["username"],
+            email=node["email"],
+            bio=node.get("bio", ""),
+            avatar=node.get("avatar", "avatar_1")
+        )
+
+    async def get_follow_counts(self, user_id: str) -> tuple[int, int]:
+        """
+        Get the follower and following counts for a user.
+        
+        Args:
+            user_id: The user identifier.
+            
+        Returns:
+            Tuple of (followers_count, following_count).
+        """
+        # Use separate counts to avoid cartesian product issues
+        followers_query = """
+        MATCH (follower:User)-[:FOLLOWS]->(u:User {id: $user_id})
+        RETURN count(follower) as count
+        """
+        following_query = """
+        MATCH (u:User {id: $user_id})-[:FOLLOWS]->(following:User)
+        RETURN count(following) as count
+        """
+        
+        followers_result = await self._session.run(followers_query, user_id=user_id)
+        followers_record = await followers_result.single()
+        followers_count = followers_record["count"] if followers_record else 0
+        
+        following_result = await self._session.run(following_query, user_id=user_id)
+        following_record = await following_result.single()
+        following_count = following_record["count"] if following_record else 0
+        
+        return (followers_count, following_count)
     
     async def is_username_available(self, username: str) -> bool:
         """
@@ -266,12 +326,19 @@ class Neo4jService:
         for record in records:
             post = record["post"]
             followed = record["followed"]
+            # Skip posts with missing required fields
+            if not post.get("id") or not post.get("content"):
+                continue
+            # Convert createdAt to ISO string if it's a DateTime object
+            created_at = post.get("createdAt", "")
+            if hasattr(created_at, "isoformat"):
+                created_at = created_at.isoformat()
             feed_posts.append(FeedPost(
-                id=post["id"],
+                id=str(post["id"]),
                 content=post["content"],
-                createdAt=post["createdAt"],
+                createdAt=str(created_at),
                 author=FeedPostAuthor(
-                    id=followed["id"],
+                    id=str(followed["id"]),
                     name=followed["name"],
                     username=followed["username"]
                 )
@@ -288,8 +355,13 @@ class Neo4jService:
         query = """
         MATCH (u:User {id: $user_id}), (t:User {id: $target_id})
         MERGE (u)-[:FOLLOWS]->(t)
+        RETURN u.id as source, t.id as target
         """
-        await self._session.run(query, user_id=user_id, target_id=target_id)
+        result = await self._session.run(query, user_id=user_id, target_id=target_id)
+        record = await result.single()
+        if record is None:
+            # Log for debugging - one or both users don't exist
+            print(f"WARNING: follow_user failed - user_id={user_id}, target_id={target_id} - one or both users not found")
 
     async def unfollow_user(self, user_id: str, target_id: str) -> None:
         """
@@ -300,7 +372,8 @@ class Neo4jService:
         MATCH (u:User {id: $user_id})-[f:FOLLOWS]->(t:User {id: $target_id})
         DELETE f
         """
-        await self._session.run(query, user_id=user_id, target_id=target_id)
+        result = await self._session.run(query, user_id=user_id, target_id=target_id)
+        await result.consume()
 
     async def get_following(self, user_id: str) -> list[UserProfile]:
         """
