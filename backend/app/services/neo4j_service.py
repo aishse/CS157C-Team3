@@ -50,7 +50,7 @@ class Neo4jService:
     - Retrieving users by Clerk user ID
     - Checking username availability
     """
-    
+
     def __init__(self, session: AsyncSession):
         """
         Initialize the Neo4j service with a database session.
@@ -59,7 +59,7 @@ class Neo4jService:
             session: An async Neo4j session for database operations.
         """
         self._session = session
-    
+
     async def create_user(self, profile: UserProfile) -> None:
         """
         Create a new user node in Neo4j.
@@ -89,7 +89,7 @@ class Neo4jService:
             bio=profile.bio,
             avatar=profile.avatar
         )
-    
+
     async def get_user_by_id(
         self, 
         user_id: str
@@ -109,10 +109,10 @@ class Neo4jService:
         """
         result = await self._session.run(query, user_id=user_id)
         record = await result.single()
-        
+
         if record is None:
             return None
-        
+
         node = record["u"]
         return UserProfile(
             id=str(node["id"]),
@@ -139,10 +139,10 @@ class Neo4jService:
         """
         result = await self._session.run(query, username=username)
         record = await result.single()
-        
+
         if record is None:
             return None
-        
+
         node = record["u"]
         return UserProfile(
             id=str(node["id"]),
@@ -172,17 +172,17 @@ class Neo4jService:
         MATCH (u:User {id: $user_id})-[:FOLLOWS]->(following:User)
         RETURN count(following) as count
         """
-        
+
         followers_result = await self._session.run(followers_query, user_id=user_id)
         followers_record = await followers_result.single()
         followers_count = followers_record["count"] if followers_record else 0
-        
+
         following_result = await self._session.run(following_query, user_id=user_id)
         following_record = await following_result.single()
         following_count = following_record["count"] if following_record else 0
-        
+
         return (followers_count, following_count)
-    
+
     async def is_username_available(self, username: str) -> bool:
         """
         Check if a username is available (not already taken).
@@ -202,7 +202,7 @@ class Neo4jService:
         """
         result = await self._session.run(query, username=username)
         record = await result.single()
-        
+
         return record["count"] == 0
 
     async def is_username_available_for_user(
@@ -238,7 +238,7 @@ class Neo4jService:
             current_user_id=current_user_id
         )
         record = await result.single()
-        
+
         return record["count"] == 0
 
     async def update_user(
@@ -287,10 +287,10 @@ class Neo4jService:
             avatar=avatar
         )
         record = await result.single()
-        
+
         if record is None:
             raise ValueError("User not found")
-        
+
         node = record["u"]
         return UserProfile(
             id=str(node["id"]),
@@ -321,7 +321,7 @@ class Neo4jService:
         """
         result = await self._session.run(query, userId=user_id)
         records = await result.data()
-        
+
         feed_posts = []
         for record in records:
             post = record["post"]
@@ -343,9 +343,8 @@ class Neo4jService:
                     username=followed["username"]
                 )
             ))
-        
-        return feed_posts
 
+        return feed_posts
 
     async def follow_user(self, user_id: str, target_id: str) -> None:
         """
@@ -450,7 +449,33 @@ class Neo4jService:
                 avatar=node.get("avatar", "avatar_1")
             ))
         return mutual
-
+    async def get_following_suggestions(self, user_id:str, limit:int=10) -> list[UserProfile]:
+        """
+        Get following suggestions for a user.
+        """
+        query = """
+        MATCH (u1:User {id:$user_id})-[:FOLLOWS]->(u2:User)-[:FOLLOWS]->(c:User)
+        WHERE NOT (u1)-[:FOLLOWS]->(c) AND c <> u1
+        RETURN c, count(DISTINCT u2) AS mutualCount 
+        ORDER BY mutualCount DESC
+        LIMIT 10;
+        """
+        result = await self._session.run(query, user_id=user_id)
+        records = await result.data()
+        
+        suggestions = []
+        for record in records:
+            node = record["c"]
+            suggestions.append(UserProfile(
+                id=str(node["id"]),
+                name=node["name"],
+                username=node["username"],
+                email=node["email"],
+                bio=node.get("bio", ""),
+                avatar=node.get("avatar", "avatar_1")
+            ))
+        return suggestions
+    
     async def get_all_users_except(self, user_id: str) -> list[UserProfile]:
         """
         Get all users except the current user.
