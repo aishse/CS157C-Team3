@@ -371,7 +371,7 @@ export async function updateProfile(
 
 
 // =============================================
-// ⭐ SOCIAL GRAPH API (UC-5 → UC-8)
+// ⭐ SOCIAL GRAPH API (UC-5 → UC-11)
 // =============================================
 
 /**
@@ -439,7 +439,14 @@ export async function getMutualConnections(otherId: string): Promise<ProfileResp
 }
 
 /**
- * Search for users by username or name
+ * Gets new people for user follow based on common connections using graph traversal queries (UC-9)
+ * Backend: GET /api/social/suggestions
+ */
+export async function getSuggestedUsers(): Promise<ProfileResponse[]> {
+  return apiClient.get<ProfileResponse[]>('/api/social/suggestions');
+}
+/**
+ * Search for users by username or name (UC-10)
  * Backend: GET /api/social/users/search?q={search_term}
  */
 export async function searchUsers(searchTerm: string): Promise<ProfileResponse[]> {
@@ -447,4 +454,12 @@ export async function searchUsers(searchTerm: string): Promise<ProfileResponse[]
     return [];
   }
   return apiClient.get<ProfileResponse[]>(`/api/social/users/search?q=${encodeURIComponent(searchTerm.trim())}`);
+}
+
+/**
+ * Get top 10 most followed users (UC-11)
+ * Backend: GET /api/social/popular
+ */
+export async function getPopularUsers(): Promise<ProfileResponse[]> {
+  return apiClient.get<ProfileResponse[]>('/api/social/popular');
 }

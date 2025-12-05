@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { getAllUsers, getFollowing, followUser, unfollowUser, searchUsers } from "@/lib/api";
+import { getAllUsers, getFollowing, followUser, unfollowUser, searchUsers, getPopularUsers } from "@/lib/api";
 import type { ProfileResponse } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,13 +15,13 @@ export function ExplorePage() {
   useEffect(() => {
     async function loadData() {
       try {
-        // Fetch all users except yourself
-        const allUsers = await getAllUsers();
+        // Fetch popular users
+        const popularUsers = await getPopularUsers();
 
         // Fetch list of users you're following
         const followingList = await getFollowing();
 
-        setUsers(allUsers);
+        setUsers(popularUsers);
         setFollowing(followingList.map((u) => u.id));
       } catch (err) {
         console.error("Failed to load explore data:", err);
@@ -38,8 +38,8 @@ export function ExplorePage() {
       if (!searchTerm.trim()) {
         // If search is empty, load all users
         try {
-          const allUsers = await getAllUsers();
-          setUsers(allUsers);
+          const popularUsers = await getPopularUsers();
+          setUsers(popularUsers);
           setIsSearching(false);
         } catch (err) {
           console.error("Failed to load users:", err);
@@ -68,13 +68,23 @@ export function ExplorePage() {
   }, [searchTerm]);
 
   const handleFollow = async (targetId: string) => {
-    await followUser(targetId);
-    setFollowing([...following, targetId]);
+    try {
+      await followUser(targetId);
+      setFollowing([...following, targetId]);
+  ;
+    } catch (err) {
+      console.error("Failed to follow user:", err);
+    }
   };
 
   const handleUnfollow = async (targetId: string) => {
-    await unfollowUser(targetId);
-    setFollowing(following.filter((id) => id !== targetId));
+    try {
+      await unfollowUser(targetId);
+      setFollowing(following.filter((id) => id !== targetId));
+     
+    } catch (err) {
+      console.error("Failed to unfollow user:", err);
+    }
   };
 
   return (
@@ -104,7 +114,9 @@ export function ExplorePage() {
           {searchTerm.trim() ? "No users found matching your search." : "No users found."}
         </p>
       )}
-
+        {!loading && !isSearching && !searchTerm.trim() && users.length > 0 && (
+        <h2 className="text-lg font-semibold mt-6">Popular Users</h2>
+      )}
       {!loading && !isSearching && users.map((user) => (
         <div
           key={user.id}
@@ -113,6 +125,7 @@ export function ExplorePage() {
           <Link to={`/profile/${user.username}`} className="flex-1">
             <p className="text-lg font-medium">{user.name}</p>
             <p className="text-white/50">@{user.username}</p>
+            <p className="text-sm text-white/40 mt-1">{user.followers_count} followers</p>
           </Link>
 
           {following.includes(user.id) ? (

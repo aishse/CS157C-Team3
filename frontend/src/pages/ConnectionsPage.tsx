@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { getFollowers, getFollowing } from "@/lib/api";
+import { getFollowers, getFollowing, getSuggestedUsers } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 
 export function ConnectionsPage() {
   const [followers, setFollowers] = useState<any[]>([]);
   const [following, setFollowing] = useState<any[]>([]);
+  const [suggestions, setSuggestions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -13,9 +14,11 @@ export function ConnectionsPage() {
       try {
         const f1 = await getFollowers();
         const f2 = await getFollowing();
+        const s = await getSuggestedUsers();
 
         setFollowers(f1);
         setFollowing(f2);
+        setSuggestions(s);
       } catch (err) {
         console.error("Failed to load connections:", err);
       } finally {
@@ -66,6 +69,28 @@ export function ConnectionsPage() {
         ) : (
           <div className="space-y-3">
             {followers.map((u) => (
+              <div
+                key={u.id}
+                className="bg-white/10 p-4 rounded-xl flex items-center justify-between border border-white/10"
+              >
+                <Link to={`/profile/${u.username}`} className="flex-1">
+                  <p className="font-medium">{u.name}</p>
+                  <p className="text-white/50 text-sm">@{u.username}</p>
+                </Link>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+      {/* Suggested Accounts Section */}
+      <section>
+        <h2 className="text-xl font-semibold mb-2">Suggested Accounts</h2>
+        {/* Add suggested accounts content here */}
+        {suggestions.length === 0 ? (
+          <p className="text-white/60">No suggestions available. Try following more people! </p>
+        ) : (
+          <div className="space-y-3">
+            {suggestions.map((u) => (
               <div
                 key={u.id}
                 className="bg-white/10 p-4 rounded-xl flex items-center justify-between border border-white/10"
