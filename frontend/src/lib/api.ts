@@ -437,3 +437,14 @@ export async function getFollowersForUser(userId: string): Promise<ProfileRespon
 export async function getMutualConnections(otherId: string): Promise<ProfileResponse[]> {
   return apiClient.get<ProfileResponse[]>(`/api/social/mutual/${otherId}`);
 }
+
+/**
+ * Search for users by username or name
+ * Backend: GET /api/social/users/search?q={search_term}
+ */
+export async function searchUsers(searchTerm: string): Promise<ProfileResponse[]> {
+  if (!searchTerm || !searchTerm.trim()) {
+    return [];
+  }
+  return apiClient.get<ProfileResponse[]>(`/api/social/users/search?q=${encodeURIComponent(searchTerm.trim())}`);
+}

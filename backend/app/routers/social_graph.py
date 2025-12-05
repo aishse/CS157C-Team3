@@ -80,3 +80,15 @@ async def list_users(
 ):
     return await neo4j.get_all_users_except(current_user.id)
 
+# -------------------- Search Users --------------------
+@router.get("/users/search")
+async def search_users(
+    q: str,
+    current_user: Annotated[ClerkUser, Depends(get_current_user)],
+    neo4j: Annotated[Neo4jService, Depends(get_neo4j_service)]
+) -> list[UserProfile]:
+    """Search for users by username or name."""
+    if not q or not q.strip():
+        return []
+    return await neo4j.search_users(q.strip(), current_user.id)
+

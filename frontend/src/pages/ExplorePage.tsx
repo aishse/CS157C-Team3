@@ -1,12 +1,16 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { getAllUsers, getFollowing, followUser, unfollowUser } from "@/lib/api";
+import { getAllUsers, getFollowing, followUser, unfollowUser, searchUsers } from "@/lib/api";
+import type { ProfileResponse } from "@/lib/api";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 export function ExplorePage() {
-  const [users, setUsers] = useState<any[]>([]);
+  const [users, setUsers] = useState<ProfileResponse[]>([]);
   const [following, setFollowing] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [isSearching, setIsSearching] = useState(false);
 
   useEffect(() => {
     async function loadData() {
@@ -29,6 +33,40 @@ export function ExplorePage() {
     loadData();
   }, []);
 
+  useEffect(() => {
+    async function performSearch() {
+      if (!searchTerm.trim()) {
+        // If search is empty, load all users
+        try {
+          const allUsers = await getAllUsers();
+          setUsers(allUsers);
+          setIsSearching(false);
+        } catch (err) {
+          console.error("Failed to load users:", err);
+          setIsSearching(false);
+        }
+        return;
+      }
+
+      setIsSearching(true);
+      try {
+        const searchResults = await searchUsers(searchTerm);
+        setUsers(searchResults);
+      } catch (err) {
+        console.error("Failed to search users:", err);
+      } finally {
+        setIsSearching(false);
+      }
+    }
+
+    // Debounce search
+    const timeoutId = setTimeout(() => {
+      performSearch();
+    }, 300);
+
+    return () => clearTimeout(timeoutId);
+  }, [searchTerm]);
+
   const handleFollow = async (targetId: string) => {
     await followUser(targetId);
     setFollowing([...following, targetId]);
@@ -39,19 +77,35 @@ export function ExplorePage() {
     setFollowing(following.filter((id) => id !== targetId));
   };
 
-  if (loading) {
-    return <p className="text-white p-4">Loading users...</p>;
-  }
-
-  if (users.length === 0) {
-    return <p className="text-white p-4">No users found.</p>;
-  }
-
   return (
     <div className="text-white space-y-4">
       <h1 className="text-2xl font-semibold mb-4">Explore Users</h1>
 
-      {users.map((user) => (
+      <div className="mb-4">
+        <Input
+          type="text"
+          placeholder="Search users by name or username..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="w-full bg-white/10 border-white/20 text-white placeholder:text-white/50"
+        />
+      </div>
+
+      {loading && (
+        <p className="text-white/50 p-4">Loading users...</p>
+      )}
+
+      {!loading && isSearching && (
+        <p className="text-white/50 p-4">Searching...</p>
+      )}
+
+      {!loading && !isSearching && users.length === 0 && (
+        <p className="text-white/50 p-4">
+          {searchTerm.trim() ? "No users found matching your search." : "No users found."}
+        </p>
+      )}
+
+      {!loading && !isSearching && users.map((user) => (
         <div
           key={user.id}
           className="bg-white/10 p-4 rounded-xl flex items-center justify-between border border-white/10"

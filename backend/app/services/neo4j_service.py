@@ -462,7 +462,7 @@ class Neo4jService:
         """
         result = await self._session.run(query, user_id=user_id)
         records = await result.data()
-        
+
         suggestions = []
         for record in records:
             node = record["c"]
@@ -476,6 +476,34 @@ class Neo4jService:
             ))
         return suggestions
     
+    async def search_users(self, search_term: str, user_id:str) -> list[UserProfile]:
+        """
+        Search for users by username or name.
+        Used for Search functionality.
+        """
+        query = """
+        MATCH (u1:User)
+        WHERE (toLower(u1.name) CONTAINS toLower($search_term) 
+               OR toLower(u1.username) CONTAINS toLower($search_term))
+              AND u1.id <> $user_id
+              
+        RETURN u1 AS u
+        """
+        result = await self._session.run(query, search_term=search_term, user_id=user_id)
+        records = await result.data()
+
+        users = []
+        for record in records:
+            node = record["u"]
+            users.append(UserProfile(
+                id=str(node["id"]),
+                name=node["name"],
+                username=node["username"],
+                email=node["email"],
+                bio=node.get("bio", ""),
+                avatar=node.get("avatar", "avatar_1")
+            ))
+        return users
     async def get_all_users_except(self, user_id: str) -> list[UserProfile]:
         """
         Get all users except the current user.
