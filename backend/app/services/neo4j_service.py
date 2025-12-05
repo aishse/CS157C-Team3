@@ -429,13 +429,13 @@ class Neo4jService:
         """
         Get mutual connections between two users.
         Requirements: UC-8 Mutual Connections
-        """
+         """
         query = """
         MATCH (u1:User {id: $user1})-[:FOLLOWS]->(m:User),
-              (u2:User {id: $user2})-[:FOLLOWS]->(m)
+            (u2:User {id: $user2})-[:FOLLOWS]->(m)
         RETURN m
         """
-        result = await self._session.run(user1=user1, user2=user2)
+        result = await self._session.run(query, user1=user1, user2=user2)
         records = await result.data()
 
         mutual = []
@@ -450,6 +450,7 @@ class Neo4jService:
                 avatar=node.get("avatar", "avatar_1")
             ))
         return mutual
+
 
     async def get_all_users_except(self, user_id: str) -> list[UserProfile]:
         """

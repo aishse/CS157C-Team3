@@ -72,6 +72,17 @@ async def mutual_connections(
 ):
     return await neo4j.get_mutual_connections(current_user.id, other_id)
 
+@router.get("/mutual/{other_id}")
+async def mutual_connections(
+    other_id: str,
+    current_user: Annotated[ClerkUser, Depends(get_current_user)],
+    neo4j: Annotated[Neo4jService, Depends(get_neo4j_service)]
+):
+    """
+    UC-8: Get mutual connections between the current user and another user.
+    """
+    return await neo4j.get_mutual_connections(current_user.id, other_id)
+
 
 @router.get("/users")
 async def list_users(
