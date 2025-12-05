@@ -13,7 +13,7 @@ from pydantic import BaseModel
 
 class UserProfile(BaseModel):
     """User profile data model for Neo4j operations.
-    Schema: bio, email, id, name, username, avatar
+    Schema: bio, email, id, name, username, avatar, followers_count, following_count
     """
     id: str
     name: str
@@ -21,6 +21,8 @@ class UserProfile(BaseModel):
     email: str
     bio: str = ""
     avatar: str = "avatar_1"
+    followers_count: int = 0
+    following_count: int = 0
 
 
 class FeedPostAuthor(BaseModel):
@@ -449,6 +451,7 @@ class Neo4jService:
                 avatar=node.get("avatar", "avatar_1")
             ))
         return mutual
+
     async def get_following_suggestions(self, user_id:str, limit:int=10) -> list[UserProfile]:
         """
         Get following suggestions for a user.
@@ -475,7 +478,7 @@ class Neo4jService:
                 avatar=node.get("avatar", "avatar_1")
             ))
         return suggestions
-    
+
     async def search_users(self, search_term: str, user_id:str) -> list[UserProfile]:
         """
         Search for users by username or name.
@@ -502,6 +505,38 @@ class Neo4jService:
                 email=node["email"],
                 bio=node.get("bio", ""),
                 avatar=node.get("avatar", "avatar_1")
+            ))
+        return users
+    async def explore_popular_users(self, limit:int=10) -> list[UserProfile]:
+        """
+        Get popular users based on follower count.
+        Used for Explore Popular Users functionality.
+        """
+        query = """
+        MATCH (u1:User)
+        OPTIONAL MATCH (u1)<-[:FOLLOWS]-(follower:User)
+        WITH u1, count(DISTINCT follower) as followers
+        OPTIONAL MATCH (u1)-[:FOLLOWS]->(following:User)
+        WITH u1, followers, count(DISTINCT following) as following_count
+        RETURN u1 as u, followers, following_count
+        ORDER BY followers DESC
+        LIMIT $limit
+        """
+        result = await self._session.run(query, limit=limit)
+        records = await result.data()
+
+        users = []
+        for record in records:
+            node = record["u"]
+            users.append(UserProfile(
+                id=str(node["id"]),
+                name=node["name"],
+                username=node["username"],
+                email=node["email"],
+                bio=node.get("bio", ""),
+                avatar=node.get("avatar", "avatar_1"),
+                followers_count=record.get("followers", 0),
+                following_count=record.get("following_count", 0)
             ))
         return users
     async def get_all_users_except(self, user_id: str) -> list[UserProfile]:

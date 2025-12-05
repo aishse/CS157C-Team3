@@ -80,7 +80,16 @@ async def list_users(
 ):
     return await neo4j.get_all_users_except(current_user.id)
 
-# -------------------- Search Users --------------------
+# -------------------- UC-9 Suggested Users --------------------
+@router.get("/suggestions")
+async def get_suggested_users(
+    current_user: Annotated[ClerkUser, Depends(get_current_user)],
+    neo4j: Annotated[Neo4jService, Depends(get_neo4j_service)]
+) -> list[UserProfile]:
+    """Get new people for user follow based on common connections."""
+    return await neo4j.get_following_suggestions(current_user.id)
+
+# -------------------- UC-10 Search Users --------------------
 @router.get("/users/search")
 async def search_users(
     q: str,
@@ -92,3 +101,11 @@ async def search_users(
         return []
     return await neo4j.search_users(q.strip(), current_user.id)
 
+# -------------------- UC-11 Explore Popular Users --------------------
+@router.get("/popular")
+async def explore_popular_users(
+    current_user: Annotated[ClerkUser, Depends(get_current_user)],
+    neo4j: Annotated[Neo4jService, Depends(get_neo4j_service)]
+) -> list[UserProfile]:
+    """Get popular users based on follower count."""
+    return await neo4j.explore_popular_users()
