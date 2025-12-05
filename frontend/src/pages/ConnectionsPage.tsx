@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { getFollowers, getFollowing, getSuggestedUsers } from "@/lib/api";
-import { Button } from "@/components/ui/button";
+import { getFollowers, getFollowing, getSuggestedUsers, followUser, unfollowUser } from "@/lib/api";
+import type { ProfileResponse } from "@/lib/api";
+import { UserCard } from "@/components/UserCard";
 
 export function ConnectionsPage() {
-  const [followers, setFollowers] = useState<any[]>([]);
-  const [following, setFollowing] = useState<any[]>([]);
-  const [suggestions, setSuggestions] = useState<any[]>([]);
+  const [followers, setFollowers] = useState<ProfileResponse[]>([]);
+  const [following, setFollowing] = useState<ProfileResponse[]>([]);
+  const [suggestions, setSuggestions] = useState<ProfileResponse[]>([]);
+  const [followingIds, setFollowingIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -19,6 +21,7 @@ export function ConnectionsPage() {
         setFollowers(f1);
         setFollowing(f2);
         setSuggestions(s);
+        setFollowingIds(f2.map((u) => u.id));
       } catch (err) {
         console.error("Failed to load connections:", err);
       } finally {
@@ -28,6 +31,30 @@ export function ConnectionsPage() {
 
     loadConnections();
   }, []);
+
+  const handleFollow = async (targetId: string) => {
+    try {
+      await followUser(targetId);
+      setFollowingIds([...followingIds, targetId]);
+      setSuggestions(suggestions.map((u) =>
+        u.id === targetId ? { ...u, followers_count: u.followers_count + 1 } : u
+      ));
+    } catch (err) {
+      console.error("Failed to follow user:", err);
+    }
+  };
+
+  const handleUnfollow = async (targetId: string) => {
+    try {
+      await unfollowUser(targetId);
+      setFollowingIds(followingIds.filter((id) => id !== targetId));
+      setSuggestions(suggestions.map((u) =>
+        u.id === targetId ? { ...u, followers_count: u.followers_count - 1 } : u
+      ));
+    } catch (err) {
+      console.error("Failed to unfollow user:", err);
+    }
+  };
 
   if (loading) {
     return <p className="text-white p-4">Loading connections...</p>;
@@ -85,21 +112,18 @@ export function ConnectionsPage() {
       {/* Suggested Accounts Section */}
       <section>
         <h2 className="text-xl font-semibold mb-2">Suggested Accounts</h2>
-        {/* Add suggested accounts content here */}
         {suggestions.length === 0 ? (
-          <p className="text-white/60">No suggestions available. Try following more people! </p>
+          <p className="text-white/60">No suggestions available. Try following more people!</p>
         ) : (
           <div className="space-y-3">
             {suggestions.map((u) => (
-              <div
+              <UserCard
                 key={u.id}
-                className="bg-white/10 p-4 rounded-xl flex items-center justify-between border border-white/10"
-              >
-                <Link to={`/profile/${u.username}`} className="flex-1">
-                  <p className="font-medium">{u.name}</p>
-                  <p className="text-white/50 text-sm">@{u.username}</p>
-                </Link>
-              </div>
+                user={u}
+                isFollowing={followingIds.includes(u.id)}
+                onFollow={handleFollow}
+                onUnfollow={handleUnfollow}
+              />
             ))}
           </div>
         )}

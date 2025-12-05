@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { getAllUsers, getFollowing, followUser, unfollowUser, searchUsers, getPopularUsers } from "@/lib/api";
+import { getFollowing, followUser, unfollowUser, searchUsers, getPopularUsers } from "@/lib/api";
 import type { ProfileResponse } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -71,7 +71,9 @@ export function ExplorePage() {
     try {
       await followUser(targetId);
       setFollowing([...following, targetId]);
-  ;
+      setUsers(users.map((u) =>
+        u.id === targetId ? { ...u, followers_count: u.followers_count + 1 } : u
+      ));
     } catch (err) {
       console.error("Failed to follow user:", err);
     }
@@ -81,7 +83,9 @@ export function ExplorePage() {
     try {
       await unfollowUser(targetId);
       setFollowing(following.filter((id) => id !== targetId));
-     
+      setUsers(users.map((u) =>
+        u.id === targetId ? { ...u, followers_count: u.followers_count - 1 } : u
+      ));
     } catch (err) {
       console.error("Failed to unfollow user:", err);
     }

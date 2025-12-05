@@ -459,7 +459,9 @@ class Neo4jService:
         query = """
         MATCH (u1:User {id:$user_id})-[:FOLLOWS]->(u2:User)-[:FOLLOWS]->(c:User)
         WHERE NOT (u1)-[:FOLLOWS]->(c) AND c <> u1
-        RETURN c, count(DISTINCT u2) AS mutualCount 
+        WITH c, count(DISTINCT u2) AS mutualCount
+        OPTIONAL MATCH (c)<-[:FOLLOWS]-(follower:User)
+        RETURN c, mutualCount, count(DISTINCT follower) AS followers
         ORDER BY mutualCount DESC
         LIMIT 10;
         """
@@ -475,7 +477,8 @@ class Neo4jService:
                 username=node["username"],
                 email=node["email"],
                 bio=node.get("bio", ""),
-                avatar=node.get("avatar", "avatar_1")
+                avatar=node.get("avatar", "avatar_1"),
+                followers_count=record.get("followers", 0)
             ))
         return suggestions
 
@@ -485,12 +488,12 @@ class Neo4jService:
         Used for Search functionality.
         """
         query = """
-        MATCH (u1:User)
-        WHERE (toLower(u1.name) CONTAINS toLower($search_term) 
-               OR toLower(u1.username) CONTAINS toLower($search_term))
-              AND u1.id <> $user_id
-              
-        RETURN u1 AS u
+        MATCH (u:User)
+        WHERE (toLower(u.name) CONTAINS toLower($search_term) 
+               OR toLower(u.username) CONTAINS toLower($search_term))
+              AND u.id <> $user_id
+        OPTIONAL MATCH (u)<-[:FOLLOWS]-(follower:User)
+        RETURN u, count(DISTINCT follower) AS followers
         """
         result = await self._session.run(query, search_term=search_term, user_id=user_id)
         records = await result.data()
@@ -504,7 +507,8 @@ class Neo4jService:
                 username=node["username"],
                 email=node["email"],
                 bio=node.get("bio", ""),
-                avatar=node.get("avatar", "avatar_1")
+                avatar=node.get("avatar", "avatar_1"),
+                followers_count=record.get("followers", 0)
             ))
         return users
     async def explore_popular_users(self, limit:int=10) -> list[UserProfile]:

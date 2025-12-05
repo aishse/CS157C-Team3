@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, CalendarDays } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { useAuth } from '@/providers/AuthContext';
 import { useApiClient } from '@/hooks/use-api';
 import { useToast } from '@/hooks/use-toast';
@@ -19,7 +19,6 @@ interface ProfileUser {
   username: string;
   avatar: string;
   bio?: string;
-  joinedDate?: string;
   followersCount: number;
   followingCount: number;
 }
@@ -68,7 +67,6 @@ export function ProfilePage() {
         username: profile.username,
         avatar: `/avatars/${profile.avatar}.svg`,
         bio: profile.bio,
-        joinedDate: 'recently',
         followersCount: profile.followers_count,
         followingCount: profile.following_count,
       });
@@ -104,7 +102,6 @@ export function ProfilePage() {
       username: response.username,
       avatar: `/avatars/${response.avatar}.svg`,
       bio: response.bio,
-      joinedDate: 'recently',
       followersCount: prev?.followersCount ?? 0,
       followingCount: prev?.followingCount ?? 0,
     }));
@@ -210,11 +207,6 @@ export function ProfilePage() {
         </div>
 
         {profileUser.bio && <p>{profileUser.bio}</p>}
-
-        <div className="flex items-center gap-2 text-white/50 text-sm">
-          <CalendarDays className="w-4 h-4" />
-          <span>Joined {profileUser.joinedDate || 'recently'}</span>
-        </div>
 
         <div className="flex gap-4 text-sm">
           <div
