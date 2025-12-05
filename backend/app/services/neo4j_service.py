@@ -513,14 +513,11 @@ class Neo4jService:
         Used for Explore Popular Users functionality.
         """
         query = """
-        MATCH (u1:User)
-        OPTIONAL MATCH (u1)<-[:FOLLOWS]-(follower:User)
-        WITH u1, count(DISTINCT follower) as followers
-        OPTIONAL MATCH (u1)-[:FOLLOWS]->(following:User)
-        WITH u1, followers, count(DISTINCT following) as following_count
-        RETURN u1 as u, followers, following_count
+        MATCH (u:User)<-[:FOLLOWS]-(u2:User)
+        RETURN u, count(DISTINCT u2) as followers 
         ORDER BY followers DESC
         LIMIT $limit
+
         """
         result = await self._session.run(query, limit=limit)
         records = await result.data()
