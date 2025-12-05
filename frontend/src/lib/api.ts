@@ -430,9 +430,11 @@ export async function getFollowersForUser(userId: string): Promise<ProfileRespon
   return apiClient.get<ProfileResponse[]>(`/api/social/followers/${userId}`);
 }
 
+
 /**
- * Get mutual connections between the current user and another user (UC-8)
- * Backend: GET /api/social/mutual/{other_id}
+ * Get mutual connections between the current user and another user.
+ * Backend: GET /api/social/mutual/{otherId}
+ * Requirements: UC-8
  */
 export async function getMutualConnections(otherId: string): Promise<ProfileResponse[]> {
   return apiClient.get<ProfileResponse[]>(`/api/social/mutual/${otherId}`);

@@ -430,13 +430,13 @@ class Neo4jService:
         """
         Get mutual connections between two users.
         Requirements: UC-8 Mutual Connections
-        """
+         """
         query = """
         MATCH (u1:User {id: $user1})-[:FOLLOWS]->(m:User),
-              (u2:User {id: $user2})-[:FOLLOWS]->(m)
+            (u2:User {id: $user2})-[:FOLLOWS]->(m)
         RETURN m
         """
-        result = await self._session.run(user1=user1, user2=user2)
+        result = await self._session.run(query, user1=user1, user2=user2)
         records = await result.data()
 
         mutual = []
@@ -472,14 +472,14 @@ class Neo4jService:
         for record in records:
             node = record["c"]
             suggestions.append(UserProfile(
-                id=str(node["id"]),
+                id=str(node["id"])),
                 name=node["name"],
                 username=node["username"],
                 email=node["email"],
                 bio=node.get("bio", ""),
                 avatar=node.get("avatar", "avatar_1"),
                 followers_count=record.get("followers", 0)
-            ))
+            )
         return suggestions
 
     async def search_users(self, search_term: str, user_id:str) -> list[UserProfile]:
@@ -502,15 +502,16 @@ class Neo4jService:
         for record in records:
             node = record["u"]
             users.append(UserProfile(
-                id=str(node["id"]),
+                id=str(node["id"])),
                 name=node["name"],
                 username=node["username"],
                 email=node["email"],
                 bio=node.get("bio", ""),
                 avatar=node.get("avatar", "avatar_1"),
                 followers_count=record.get("followers", 0)
-            ))
+            )
         return users
+
     async def explore_popular_users(self, limit:int=10) -> list[UserProfile]:
         """
         Get popular users based on follower count.
@@ -521,7 +522,6 @@ class Neo4jService:
         RETURN u, count(DISTINCT u2) as followers 
         ORDER BY followers DESC
         LIMIT $limit
-
         """
         result = await self._session.run(query, limit=limit)
         records = await result.data()
@@ -530,7 +530,7 @@ class Neo4jService:
         for record in records:
             node = record["u"]
             users.append(UserProfile(
-                id=str(node["id"]),
+                id=str(node["id"])),
                 name=node["name"],
                 username=node["username"],
                 email=node["email"],
@@ -538,8 +538,9 @@ class Neo4jService:
                 avatar=node.get("avatar", "avatar_1"),
                 followers_count=record.get("followers", 0),
                 following_count=record.get("following_count", 0)
-            ))
+            )
         return users
+
     async def get_all_users_except(self, user_id: str) -> list[UserProfile]:
         """
         Get all users except the current user.
@@ -558,11 +559,11 @@ class Neo4jService:
         for record in records:
             node = record["u"]
             users.append(UserProfile(
-                id=str(node["id"]),
+                id=str(node["id"])),
                 name=node["name"],
                 username=node["username"],
                 email=node["email"],
                 bio=node.get("bio", ""),
                 avatar=node.get("avatar", "avatar_1")
-            ))
+            )
         return users

@@ -10,7 +10,7 @@ import { EditProfileDialog } from '@/components/profile/EditProfileDialog';
 import { FollowersDialog, type FollowersDialogType } from '@/components/profile/FollowersDialog';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { updateProfile, followUser, unfollowUser, getFollowing } from '@/lib/api';
+import { updateProfile, followUser, unfollowUser, getFollowing, getMutualConnections } from '@/lib/api';
 import type { ProfileResponse, ProfileUpdateRequest } from '@/lib/api';
 
 interface ProfileUser {
@@ -25,7 +25,7 @@ interface ProfileUser {
 
 /**
  * ProfilePage component for displaying user profiles.
- * Requirements: 6.1, 6.3, 6.4, 6.5
+ * Requirements: 6.1, 6.3, 6.4, 6.5, UC-8
  */
 export function ProfilePage() {
   const { username } = useParams<{ username: string }>();
@@ -34,19 +34,23 @@ export function ProfilePage() {
   const api = useApiClient();
   const { toast } = useToast();
   const { posts, setCurrentProfile } = useAppStore();
+
   const [profileUser, setProfileUser] = useState<ProfileUser | null>(null);
   const [loading, setLoading] = useState(true);
   
-  // Dialog state for EditProfileDialog
-  // Requirements: 1.1
+  // Dialog state for EditProfileDialog (UC-4)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   
-  // Dialog state for FollowersDialog
+  // Dialog state for FollowersDialog (UC-7)
   const [followersDialogOpen, setFollowersDialogOpen] = useState(false);
   const [followersDialogType, setFollowersDialogType] = useState<FollowersDialogType>('followers');
   
-  // Follow state for other users' profiles
+  // Follow state for other users' profiles (UC-5/6)
   const [isFollowing, setIsFollowing] = useState(false);
+
+  // Mutual connections state (UC-8)
+  const [mutualConnections, setMutualConnections] = useState<ProfileResponse[]>([]);
+  const [mutualLoading, setMutualLoading] = useState(false);
 
   // Fetch user profile from backend by username
   const fetchProfile = useCallback(async () => {
@@ -88,8 +92,30 @@ export function ProfilePage() {
   const isCurrentUser = user?.id === profileUser?.id;
   const userPosts = posts.filter((post) => post.author.username === username);
 
-  // Handle profile save
-  // Requirements: 6.2 - Refetch profile data after successful update
+  // Fetch mutual connections when viewing someone else's profile (UC-8)
+  useEffect(() => {
+    const loadMutualConnections = async () => {
+      if (!profileUser || !user || isCurrentUser) {
+        setMutualConnections([]);
+        return;
+      }
+
+      try {
+        setMutualLoading(true);
+        const mutuals = await getMutualConnections(profileUser.id);
+        setMutualConnections(mutuals);
+      } catch (error) {
+        console.error('Error fetching mutual connections:', error);
+        setMutualConnections([]);
+      } finally {
+        setMutualLoading(false);
+      }
+    };
+
+    loadMutualConnections();
+  }, [profileUser, user, isCurrentUser]);
+
+  // Handle profile save (UC-4)
   const handleProfileSave = async (updatedProfile: ProfileUpdateRequest) => {
     if (!user) return;
     
@@ -115,8 +141,6 @@ export function ProfilePage() {
       bio: response.bio || '',
     });
     
-    // Close dialog and show success notification
-    // Requirements: 6.5
     setIsEditDialogOpen(false);
     toast({
       title: 'Profile updated',
@@ -230,6 +254,45 @@ export function ProfilePage() {
             <span className="text-white/50">Followers</span>
           </div>
         </div>
+
+        {/* UC-8: Mutual Connections */}
+        {!isCurrentUser && (
+          <div className="mt-2">
+            <h3 className="text-sm font-semibold text-white">Mutual connections</h3>
+            {mutualLoading ? (
+              <div className="flex items-center gap-2 text-white/60 text-sm mt-1">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white/60"></div>
+                <span>Loading mutual connections…</span>
+              </div>
+            ) : mutualConnections.length === 0 ? (
+              <p className="text-white/50 text-sm mt-1">
+                No mutual connections yet.
+              </p>
+            ) : (
+              <div className="flex flex-wrap gap-2 mt-2">
+                {mutualConnections.slice(0, 3).map((u) => (
+                  <button
+                    key={u.id}
+                    onClick={() => navigate(`/profile/${u.username}`)}
+                    className="flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 hover:bg-white/20 text-sm transition-colors"
+                  >
+                    <Avatar className="w-6 h-6 border border-white/20">
+                      <AvatarImage src={`/avatars/${u.avatar}.svg`} />
+                      <AvatarFallback>{u.name?.[0] || '?'}</AvatarFallback>
+                    </Avatar>
+                    <span className="font-medium text-white">{u.name}</span>
+                    <span className="text-white/50 text-xs">@{u.username}</span>
+                  </button>
+                ))}
+                {mutualConnections.length > 3 && (
+                  <span className="text-white/60 text-xs mt-1">
+                    +{mutualConnections.length - 3} more mutual connections
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="flex border-b border-white/10 mt-4">
@@ -246,7 +309,6 @@ export function ProfilePage() {
       </div>
 
       {/* Edit Profile Dialog */}
-      {/* Requirements: 1.1 - Pass current profile data to dialog */}
       {profileUser && (
         <EditProfileDialog
           open={isEditDialogOpen}
@@ -280,3 +342,4 @@ export function ProfilePage() {
 }
 
 export default ProfilePage;
+
